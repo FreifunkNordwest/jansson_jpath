@@ -1,0 +1,42 @@
+{
+  "c0:4a:00:ed:f1:bc": {
+    "location": {
+      "longitude": 7.2294974300000003,
+      "latitude": 53.425338259999997
+    },
+    "network": {
+      "mac": "c0:4a:00:ed:f1:bc",
+      "addresses": [
+        "fd74:fdaa:9dc4:0:c24a:ff:feed:f1bc",
+        "fe80:0:0:0:c24a:ff:feed:f1bc"
+      ],
+      "mesh_interfaces": [
+        "c2:4e:00:ed:f1:bc",
+        "c2:4d:01:ed:f1:bc"
+      ]
+    },
+    "node_id": "c04a00edf1bc",
+    "hostname": "Loppersum_Schlossstr",
+    "software": {
+      "fastd": {
+        "version": "v16",
+        "enabled": true
+      },
+      "autoupdater": {
+        "enabled": true,
+        "branch": "stable"
+      },
+      "firmware": {
+        "base": "gluon-v2014.4-2-g5c6bbcd",
+        "release": "0.5.4"
+      },
+      "batman-adv": {
+        "compat": 14,
+        "version": "2013.4.0"
+      }
+    },
+    "hardware": {
+      "model": "TP-Link TL-WR841N/ND v9"
+    }
+  }
+}

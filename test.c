@@ -2,9 +2,9 @@
 #include <string.h>
 #include <regex.h>
 
-int json_is_valid_path(char* source, char*** children, int** indices){
-	char regexString[]="^\\$(\\.([a-z0-9:\\-_]+)(\\[([0-9]+)\\])*)+$";
-	int buffer_length=5;int maxGroups=5;
+int json_is_valid_path(char* source, char*** children){
+	char regexString[]="^\\$(\\.([a-z0-9:\\-_]+)|(\\[[0-9]+\\]))+$";
+	int buffer_length=5;int maxGroups=4;
 	regex_t regexCompiled;
 	
 	unsigned int m;
@@ -17,7 +17,6 @@ int json_is_valid_path(char* source, char*** children, int** indices){
  
 	m = 0;
 	
-	*indices=malloc(buffer_length*sizeof(int));
 	*children=malloc(buffer_length*sizeof(char*));
 	
 	cursor = malloc(strlen(source)+1);
@@ -29,79 +28,99 @@ int json_is_valid_path(char* source, char*** children, int** indices){
 		
 		if (regexec(&regexCompiled, cursor, maxGroups, groupArray, 0)){
 			if(m==0){
-// 				free(cursor);
-// 				free(children);
-// 				free(indices);
+				free(cursor);
+ 				free(*children);
+				printf("no match!");
 				return 0;
 			}
-			printf("break: %i\n",m);
+			printf("%i children to be returned\n",m);
 			break;  // No more matches
 		}
 		if(buffer_length<=m){
 			buffer_length=2*buffer_length;
-			*indices=realloc(*indices,buffer_length*sizeof(int));
 			*children=realloc(*children,buffer_length*sizeof(char*));
 		}
 
-		int match_length=groupArray[2].rm_eo-groupArray[2].rm_so;
-		int index_length=groupArray[4].rm_eo-groupArray[4].rm_so;
-		
+		int match_length=groupArray[1].rm_eo-groupArray[1].rm_so;
 
-		//if array, store array-index
-		if(index_length!=0 && groupArray[4].rm_so>groupArray[2].rm_so){
-			printf("unnused+++: %i\n",groupArray[4].rm_eo);
-			*indices[m]=(int)strtol(cursor+groupArray[4].rm_so, NULL, 10);
-		}else{
-			printf("unnused---: %i\n",groupArray[4].rm_eo);
-			(*indices)[m]=(-1);
-		}
 		
-		printf("unnused: %i\n",groupArray[4].rm_eo);
+// 		printf("unnused: %i\n",groupArray[4].rm_eo);
 
 		
 		//store children-identifier
 		(*children)[m]=malloc((match_length+1)*sizeof(char));
-		strncpy((*children)[m], cursor+groupArray[2].rm_so,match_length);
+		strncpy((*children)[m], cursor+groupArray[1].rm_so,match_length);
 		(*children)[m][match_length]=0;
 		//cut path
 		cursor[groupArray[1].rm_so]='\0';
 		
-		printf("layer %u: [%2u-%2u]: %s->%i (%i)\n",m, groupArray[0].rm_so, groupArray[0].rm_eo,(*children)[m],(*indices)[m],index_length);	
+		printf("layer %u: [%2u-%2u]: %s\n",m, groupArray[0].rm_so, groupArray[0].rm_eo,(*children)[m]);	
 	}
-//  	free(cursor);
+  	free(cursor);
  	regfree(&regexCompiled); 
 	return m;
 }
 
 
 
-json_t* json_path_get(json_t* root, char* path){
+int json_path(json_t* root, char* path, json_t* node){
 	char **children;
-	int *indices;
-	int layers=json_is_valid_path(path,&children,&indices);
-	printf("%i Getting %i\n",layers,indices[0]);
-	json_t *ret;
+	int layers=json_is_valid_path(path,&children);
+	json_t *tmp=NULL,*tmp2;
+	int ret=0;
 	int i=0;
+	printf("setting/getting\n");
+
 	if(layers>0){
-		printf("processing %i layers\n",layers);
-		ret=root;
+		tmp=root;
 		for(i=layers-1;i>=0;i--){
 			printf("processing layers %i: %s\n",i,children[i]);
-// 			printf("Getting %i\n",indices[2]);
-			ret=json_object_get(ret, children[i]);
-			if(ret!=NULL){
-				if((json_is_array(ret)!=0) == (indices[i]==(-1)) ){
-					printf("invalid array-def\n");
-					ret=NULL;
-					break;
-				}else if(json_is_array(ret) && indices[i]<json_array_size(ret)){
-					//valid array-access & index
-					printf("valid array\n");
-					ret=json_array_get(ret,indices[i]);
+			int key;
+			if(children[i][0]=='.'){
+				//normal object
+				printf("object!\n");
+				tmp2=json_object_get(tmp, children[i]+1);
+				if(tmp2==NULL){
+					if(node!=NULL){
+						//if in middle of path
+						//TODO: check correct indizes of following 
+					
+						if(i==0 || 1){
+							if(i==0){
+								json_object_set_new(tmp, children[i]+1,node);
+							}else{
+								json_object_set_new(tmp, children[i]+1,json_object());
+							}
+							
+							tmp=json_object_get(tmp, children[i]+1);
+							printf("Result: `%s`\n",json_string_value(tmp));
+							printf("runs!!!\n\n");
+						}else{
+							return 1;
+						}
+						
+					}else{
+						tmp=NULL;
+						return 1;
+					}
+				}else{
+					tmp=tmp2;
 				}
+			}else if(sscanf(children[i],"[%i]",&key)==1){
+				printf("ARRAY! %i\n",key);
+// 				if(json_is_array(tmp) /*&& key<json_array_size(tmp)*/){
+				tmp2=json_array_get(tmp,key);
 			}else{
-				printf("invalid child\n");
-				ret=NULL;
+				printf("invalid path!\n");
+				return -1;
+			}
+			
+			if(tmp2==NULL){
+				
+				
+				
+				printf("unknown child\n");
+				ret=1;
 				break;
 			}
 			
@@ -111,73 +130,42 @@ json_t* json_path_get(json_t* root, char* path){
 		}
 	}else{
 		printf("invalid path\n");
-		ret=NULL;
+		return -1;
 	}
 	
 	//free up memory
-// 	free(indices);
 
-// 	free(children);
-	printf("Result: `%s`\n",json_string_value(ret));
+ 	free(*children);
+	printf("Result: `%s`\n",json_string_value(tmp));
+	node=tmp;
+
 	return ret;
 }
 
-json_t* json_path_set(json_t* root, char* path, json_t* node){
-	char **children;
-	int *indices;
-	int *new_created;
-	int layers=json_is_valid_path(path,&children,&indices);
-	printf("%i Getting %i\n",layers,indices[0]);
-	json_t *ret;
-	int i=0;
-	if(layers>0){
-		new_created=malloc(layers*sizeof(int));
-		printf("processing %i layers\n",layers);
-		ret=root;
-		for(i=layers-1;i>=0;i--){
-			printf("processing layers %i: %s\n",i,children[i]);
-// 			printf("Getting %i\n",indices[2]);
-			ret=json_object_get(ret, children[i]);
-			if(ret!=NULL){
-				if((json_is_array(ret)!=0) == (indices[i]==(-1)) ){
-					printf("invalid array-def\n");
-					ret=NULL;
-					break;
-				}else if(json_is_array(ret) && indices[i]<json_array_size(ret)){
-					//valid array-access & index
-					printf("valid array\n");
-					ret=json_array_get(ret,indices[i]);
-				}
-			}else{
-				printf("invalid child\n");
-				ret=NULL;
-				break;
-			}
-			
-		}
-		
-		free(new_created);
+json_t* json_path_get(json_t* root, char* path){
+	json_t *ret=NULL; 
+	if(0==json_path(root,path,ret)){
+		return ret;
 	}else{
-		printf("invalid path\n");
-		ret=NULL;
+		return NULL;
 	}
-	
-	//free up memory
-// 	free(indices);
-	for(i=0;i<layers;i++){
-		free(children[i]);
-	}
-	free(children);
-	printf("Result: `%s`\n",json_string_value(ret));
-	return ret;
 }
 
+int json_path_set(json_t* root, char* path, json_t* node){
+	printf("Result: `%s`\n",json_string_value(node));
+	return json_path(root,path,node);
+}
 
 int main(){
-//  	char p[] = "$.c0:4a:00:ed:f1:bc.network.addresses[1]";
-	char p[] = "$.c0:4a:00:ed:f1:bc.network.mac";
+//  	char p[] = "$.c0:4a:00:ed:f1:bc.network[1][3].addresses[1]";
+ 	char p[] = "$.c0:4a:00:ed:f1:bc.netwo.rk.mac";
 // 	printf("valid: %i\n", json_is_valid_path(p));
-	json_t *tst_json = json_load_file("json.json", 0, NULL);
-	printf("Result: `%s`\n",json_string_value(json_path_get(tst_json,p)));
+	json_t *tst_json = json_load_file("json3.json", 0, NULL);
+	char **children;
+	int layers=json_is_valid_path(p,&children);
+	json_t* tst=json_string("ASDASDADS");
+// 	json_string_set(tst, );
+ 	json_path_set(tst_json,p,tst);
+	printf("%s",json_dumps(tst_json,JSON_INDENT(3)));
 	return 0;
 }
