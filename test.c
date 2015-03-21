@@ -87,14 +87,14 @@ int json_path(json_t* root, char* path, json_t* node){
 					
 						if(i==0 || 1){
 							if(i==0){
-								json_object_set_new(tmp, children[i]+1,node);
+								tmp2=node;
 							}else{
-								json_object_set_new(tmp, children[i]+1,json_object());
+								tmp2=json_object();
 							}
-							
+							printf("INSERT: %i\n",	json_object_set(tmp, children[i]+1,tmp2));
 							tmp=json_object_get(tmp, children[i]+1);
 							printf("Result: `%s`\n",json_string_value(tmp));
-							printf("runs!!!\n\n");
+							printf("runs!!!\n");
 						}else{
 							return 1;
 						}
@@ -115,7 +115,7 @@ int json_path(json_t* root, char* path, json_t* node){
 				return -1;
 			}
 			
-			if(tmp2==NULL){
+			if(tmp==NULL){
 				
 				
 				
@@ -126,7 +126,7 @@ int json_path(json_t* root, char* path, json_t* node){
 			
 		}
 		for(i=0;i<layers;i++){
-			free(children[i]);
+ 			free(children[i]);
 		}
 	}else{
 		printf("invalid path\n");
@@ -135,7 +135,7 @@ int json_path(json_t* root, char* path, json_t* node){
 	
 	//free up memory
 
- 	free(*children);
+  	free(children);
 	printf("Result: `%s`\n",json_string_value(tmp));
 	node=tmp;
 
@@ -165,7 +165,8 @@ int main(){
 	int layers=json_is_valid_path(p,&children);
 	json_t* tst=json_string("ASDASDADS");
 // 	json_string_set(tst, );
- 	json_path_set(tst_json,p,tst);
+	json_path_set(tst_json,p,tst);
+// 	json_object_set(json_object_get(tst_json, "c0:4a:00:ed:f1:bc"),"netw",tst);
 	printf("%s",json_dumps(tst_json,JSON_INDENT(3)));
 	return 0;
 }
