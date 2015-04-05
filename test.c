@@ -61,9 +61,22 @@ int json_is_valid_path(char* source, char*** children){
 	return m;
 }
 
+int indices_zero_from(char** children, int len, int index){
+	int i;
+	for(i=index+1;i>=len;i--){
+		int key;
+		if(sscanf(children[i],"[%i]",&key)==1){
+			if(key>0){
+				return 0;
+			}
+		}
+	}
+	return 1;
+}
 
 
-int json_path(json_t* root, char* path, json_t* node){
+
+int json_path(json_t* root, char* path, json_t** node){
 	char **children;
 	int layers=json_is_valid_path(path,&children);
 	json_t *tmp=NULL,*tmp2;
@@ -74,98 +87,120 @@ int json_path(json_t* root, char* path, json_t* node){
 	if(layers>0){
 		tmp=root;
 		for(i=layers-1;i>=0;i--){
-			printf("processing layers %i: %s\n",i,children[i]);
+			printf("------\nprocessing layers %i: %s\n",layers-i,children[i]);
 			int key;
 			if(children[i][0]=='.'){
-				//normal object
-				printf("object!\n");
 				tmp2=json_object_get(tmp, children[i]+1);
-				if(tmp2==NULL){
-					if(node!=NULL){
-						//if in middle of path
-						//TODO: check correct indizes of following 
-					
-						if(i==0 || 1){
-							if(i==0){
-								tmp2=node;
-							}else{
-								tmp2=json_object();
-							}
-							printf("INSERT: %i\n",	json_object_set(tmp, children[i]+1,tmp2));
-							tmp=json_object_get(tmp, children[i]+1);
-							printf("Result: `%s`\n",json_string_value(tmp));
-							printf("runs!!!\n");
-						}else{
-							return 1;
-						}
-						
-					}else{
-						tmp=NULL;
-						return 1;
-					}
-				}else{
-					tmp=tmp2;
-				}
 			}else if(sscanf(children[i],"[%i]",&key)==1){
-				printf("ARRAY! %i\n",key);
-// 				if(json_is_array(tmp) /*&& key<json_array_size(tmp)*/){
 				tmp2=json_array_get(tmp,key);
 			}else{
+				//should never be reached
 				printf("invalid path!\n");
-				return -1;
+				return 1;
 			}
 			
-			if(tmp==NULL){
-				
-				
-				
-				printf("unknown child\n");
-				ret=1;
-				break;
-			}
-			
+				if(node!=NULL){
+					
+					if(1||i==0 ){//|| indices_zero_from(children,0,i)){printf("ARR-LEN:\n");
+						
+						
+						if(tmp2==NULL || i==0){
+							if(i==0){
+								tmp2=*node;
+							}else if(tmp2==NULL){
+						
+								if(i-1<0 || children[i-1][0]=='.'){
+									tmp2=json_object();
+									printf("obj%i....\n",i);
+
+								}else{
+									tmp2=json_array();
+									printf("arr....\n");
+								}
+							}
+							int r;
+							if(children[i][0]=='.'){
+								printf("---OBJ-LEN:\n");
+
+								r=json_object_set(tmp, children[i]+1,tmp2);
+								tmp=json_object_get(tmp, children[i]+1);
+							}else{
+								if(key==json_array_size(tmp)){
+									r=json_array_append_new(tmp,tmp2);
+								}else if(key<json_array_size(tmp)){
+									r=json_array_set_new(tmp,key,tmp2);
+								}else{
+									return 1;
+								}
+								tmp=json_array_get(tmp, key);
+							}
+							printf("INSERT: %s: %i\n",children[i]+1, r);
+							printf("Result: `%s`\n",json_string_value(tmp));
+						}else{
+							tmp=tmp2;
+						}
+						
+						
+						
+						
+					}else{
+							return 1;
+					}
+						
+					
+				}else{
+// 					printf("unknown child\n");
+// 					return 1;
+				}
+
 		}
+		
 		for(i=0;i<layers;i++){
  			free(children[i]);
 		}
 	}else{
 		printf("invalid path\n");
-		return -1;
+		return 1;
 	}
 	
 	//free up memory
 
   	free(children);
-	printf("Result: `%s`\n",json_string_value(tmp));
-	node=tmp;
-
-	return ret;
+	
+	*node=tmp2;
+	printf("Results: `%s`\n",json_string_value(*node));
+	return 0;
 }
 
 json_t* json_path_get(json_t* root, char* path){
-	json_t *ret=NULL; 
-	if(0==json_path(root,path,ret)){
+	json_t* ret=NULL; 
+	if(0==json_path(root,path,&ret)){
+		printf("Results: `%s`\n",json_string_value(ret));
 		return ret;
 	}else{
 		return NULL;
 	}
 }
 
-int json_path_set(json_t* root, char* path, json_t* node){
-	printf("Result: `%s`\n",json_string_value(node));
+int json_path_set(json_t* root, char* path, json_t** node){
+	printf("Result: `%s`\n",json_string_value(*node));
 	return json_path(root,path,node);
 }
 
 int main(){
-//  	char p[] = "$.c0:4a:00:ed:f1:bc.network[1][3].addresses[1]";
- 	char p[] = "$.c0:4a:00:ed:f1:bc.netwo.rk.mac";
+//  	char p[] = "$.c0:4a:00:ed:f1:bc.network.addresses[1]";
+ 	char p[] = "$.c0:4a:00:ed:f1:bc.netwo[0].rk[0]";
+	char p21[] = "$.c0:4a:00:ed:f1:bc.netwo[0].rk[1]";
 // 	printf("valid: %i\n", json_is_valid_path(p));
 	json_t *tst_json = json_load_file("json3.json", 0, NULL);
 	char **children;
-	int layers=json_is_valid_path(p,&children);
+// 	int layers=json_is_valid_path(p,&children);
 	json_t* tst=json_string("ASDASDADS");
 // 	json_string_set(tst, );
-	json_path_set(tst_json,p,tst);
+	json_path_set(tst_json,p,&tst);
+	tst=json_string("ASDAsDADS");
+ 	json_path_set(tst_json,p21,&tst);
+// 	printf("VAL: %s\n",json_string_value(json_path_get(tst_json,p)));
 // 	json_object_set(json_object_get(tst_json, "c0:4a:00:ed:f1:bc"),"netw",tst);
 	printf("%s",json_dumps(tst_json,JSON_INDENT(3)));
 	return 0;
