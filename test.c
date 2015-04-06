@@ -61,9 +61,9 @@ int json_is_valid_path(char* source, char*** children){
 	return m;
 }
 
-int indices_zero_from(char** children, int len, int index){
+int indices_zero_from(char** children, int index){
 	int i;
-	for(i=index+1;i>=len;i--){
+	for(i=index-1;i>=0;i--){
 		int key;
 		if(sscanf(children[i],"[%i]",&key)==1){
 			if(key>0){
@@ -98,60 +98,54 @@ int json_path(json_t* root, char* path, json_t** node){
 				printf("invalid path!\n");
 				return 1;
 			}
-			
-				if(node!=NULL){
+// 			printf("------\nprocessing layers %i: %s\n",layers-i,children[i]);
+			if(node!=NULL){
+					if((json_is_array(tmp2) && children[i-1][0]=='.')||(json_is_object(tmp2) && children[i-1][0]=='[')){
+						//if type of node unexpected reset sub-tree
+						json_object_del(tmp,children[i]);
+						tmp2=NULL;
+					}
 					
-					if(1||i==0 ){//|| indices_zero_from(children,0,i)){printf("ARR-LEN:\n");
-						
-						
-						if(tmp2==NULL || i==0){
-							if(i==0){
-								tmp2=*node;
-							}else if(tmp2==NULL){
-						
-								if(i-1<0 || children[i-1][0]=='.'){
-									tmp2=json_object();
-									printf("obj%i....\n",i);
-
-								}else{
-									tmp2=json_array();
-									printf("arr....\n");
-								}
-							}
-							int r;
-							if(children[i][0]=='.'){
-								printf("---OBJ-LEN:\n");
-
-								r=json_object_set(tmp, children[i]+1,tmp2);
-								tmp=json_object_get(tmp, children[i]+1);
-							}else{
-								if(key==json_array_size(tmp)){
-									r=json_array_append_new(tmp,tmp2);
-								}else if(key<json_array_size(tmp)){
-									r=json_array_set_new(tmp,key,tmp2);
-								}else{
-									return 1;
-								}
-								tmp=json_array_get(tmp, key);
-							}
-							printf("INSERT: %s: %i\n",children[i]+1, r);
-							printf("Result: `%s`\n",json_string_value(tmp));
+					if(tmp2==NULL || i==0){
+						//manipulate/create nodes if (i) nonexistent (ii) wrong type (iii) "final"-node to be inserted
+						if(i==0){
+							tmp2=*node;
+						}else if(i-1<0 || children[i-1][0]=='.'){
+							tmp2=json_object();
+							printf("obj%i....\n",i);
 						}else{
-							tmp=tmp2;
+							tmp2=json_array();
+							printf("arr....\n");
 						}
 						
-						
-						
-						
+						int r;
+						if(children[i][0]=='.'){
+							printf("---OBJ-LEN:\n");
+
+							r=json_object_set_new(tmp, children[i]+1,tmp2);
+							tmp=json_object_get(tmp, children[i]+1);
+						}else{
+							if(key==json_array_size(tmp)){
+								r=json_array_append_new(tmp,tmp2);
+							}else if(key<json_array_size(tmp)){
+								r=json_array_set_new(tmp,key,tmp2);
+							}else{
+								return 1;
+							}
+							tmp=json_array_get(tmp, key);
+							printf("get via key:%i",tmp==NULL);
+						}
+						printf("INSERT: %s: %i\n",children[i]+1, r);
 					}else{
-							return 1;
-					}
-						
+						tmp=tmp2;
+					}	
 					
-				}else{
-// 					printf("unknown child\n");
-// 					return 1;
-				}
+			
+					
+			}else{
+// 				printf("unknown child\n");
+// 				return 1;
+			}
 
 		}
 		
@@ -189,8 +183,8 @@ int json_path_set(json_t* root, char* path, json_t** node){
 
 int main(){
 //  	char p[] = "$.c0:4a:00:ed:f1:bc.network.addresses[1]";
- 	char p[] = "$.c0:4a:00:ed:f1:bc.netwo[0].rk[0]";
-	char p21[] = "$.c0:4a:00:ed:f1:bc.netwo[0].rk[1]";
+ 	char p[] = "$.c0:4a:00:ed:f1:bc.netwo[0][0]";
+	char p21[] = "$.c0:4a:00:ed:f1:bc.netwo.as";
 // 	printf("valid: %i\n", json_is_valid_path(p));
 	json_t *tst_json = json_load_file("json3.json", 0, NULL);
 	char **children;
@@ -199,7 +193,7 @@ int main(){
 // 	json_string_set(tst, );
 	json_path_set(tst_json,p,&tst);
 	tst=json_string("ASDAsDADS");
- 	json_path_set(tst_json,p21,&tst);
+//  	json_path_set(tst_json,p21,&tst);
 // 	printf("VAL: %s\n",json_string_value(json_path_get(tst_json,p)));
 // 	json_object_set(json_object_get(tst_json, "c0:4a:00:ed:f1:bc"),"netw",tst);
 	printf("%s",json_dumps(tst_json,JSON_INDENT(3)));
